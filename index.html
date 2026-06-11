@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0d12" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Turno Handling" />
+    <meta name="description" content="Fichaje y organización diaria de handling, completamente offline." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>Turno Handling</title>
+  </head>
+  <body>
+    <div id="offline-banner" class="offline-banner" hidden>
+      <span class="status-dot"></span>
+      Sin conexión · trabajando en modo offline
+    </div>
+
+    <div class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow" id="today-label"></p>
+          <h1>Turno <span>Handling</span></h1>
+        </div>
+        <button class="icon-button sync-state" id="sync-state" type="button" aria-label="Estado de guardado" title="Guardado localmente">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        </button>
+      </header>
+
+      <main>
+        <section class="view active" id="view-home" data-view="home">
+          <div id="home-alerts" class="alert-stack"></div>
+
+          <article class="hero-card">
+            <div class="hero-top">
+              <div>
+                <p class="card-kicker">Jornada actual</p>
+                <h2 id="shift-status">Sin fichar</h2>
+              </div>
+              <div class="live-clock" id="live-clock">--:--</div>
+            </div>
+
+            <div class="punch-grid">
+              <div>
+                <span>Entrada</span>
+                <strong id="clock-in-value">--:--</strong>
+              </div>
+              <div>
+                <span>Salida</span>
+                <strong id="clock-out-value">--:--</strong>
+              </div>
+              <div class="wide">
+                <span>Tiempo trabajado</span>
+                <strong id="worked-today-value">0 h 00 min</strong>
+              </div>
+            </div>
+
+            <div class="hero-actions">
+              <button class="primary-action clock-in" id="clock-in-button" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" /></svg>
+                Fichar entrada
+              </button>
+              <button class="primary-action clock-out" id="clock-out-button" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9m0 0 4 4m-4-4-4 4M5 4h14" /></svg>
+                Fichar salida
+              </button>
+            </div>
+
+            <button class="text-button" id="edit-current-times" type="button">Editar horas</button>
+          </article>
+
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Este mes</span>
+              <strong id="month-hours">0 h</strong>
+              <small id="month-days">0 días trabajados</small>
+            </article>
+            <article class="metric-card">
+              <span>Pendientes</span>
+              <strong id="pending-total">0</strong>
+              <small id="done-total">0 tareas hechas</small>
+            </article>
+          </div>
+
+          <article class="section-card next-shift-card">
+            <div class="section-heading">
+              <div>
+                <p class="card-kicker">Mi horario</p>
+                <h2>Próximo turno</h2>
+              </div>
+              <button class="small-button" type="button" data-go-view="schedule">Ver horario</button>
+            </div>
+            <div id="next-shift-home" class="empty-inline">No hay turnos programados.</div>
+          </article>
+
+          <article class="section-card quick-progress-card">
+            <div class="section-heading">
+              <div>
+                <p class="card-kicker">Trabajo diario</p>
+                <h2>Progreso del turno</h2>
+              </div>
+              <span class="progress-number" id="progress-number">0%</span>
+            </div>
+            <div class="progress-track"><span id="progress-bar"></span></div>
+            <button class="secondary-action full-width" type="button" data-go-view="work">Abrir panel de trabajo</button>
+          </article>
+        </section>
+
+        <section class="view" id="view-work" data-view="work">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Operativa</p>
+              <h2>Trabajo diario</h2>
+            </div>
+            <button class="secondary-action compact" id="manual-close-button" type="button">Cerrar día</button>
+          </div>
+          <p class="page-intro">Añade parking y vuelo en la sección que corresponda. Los pendientes se mantienen arriba.</p>
+          <div id="work-sections" class="work-sections"></div>
+        </section>
+
+        <section class="view" id="view-history" data-view="history">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Archivo local</p>
+              <h2>Historial</h2>
+            </div>
+          </div>
+          <label class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+            <input id="history-search" type="search" placeholder="Buscar fecha, vuelo o parking" autocomplete="off" />
+          </label>
+          <div id="history-list" class="history-list"></div>
+        </section>
+
+        <section class="view" id="view-schedule" data-view="schedule">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Planificación</p>
+              <h2>Mi horario</h2>
+            </div>
+            <button class="add-button labelled" id="add-schedule-button" type="button">
+              <span>+</span> Añadir turno
+            </button>
+          </div>
+          <div id="schedule-alerts" class="alert-stack"></div>
+          <article class="section-card">
+            <div class="section-heading">
+              <div>
+                <p class="card-kicker">Siguiente</p>
+                <h2>Próximo turno</h2>
+              </div>
+            </div>
+            <div id="next-shift-detail" class="empty-inline">No hay turnos programados.</div>
+          </article>
+          <div class="subheading-row">
+            <h3>Próximos 7 días</h3>
+            <button class="text-button" id="notifications-button" type="button">Activar avisos</button>
+          </div>
+          <div id="schedule-list" class="schedule-list"></div>
+          <p class="privacy-note">Los avisos siempre aparecen dentro de la app. iPhone limita las notificaciones programadas sin servidor cuando la app está cerrada.</p>
+        </section>
+
+        <section class="view" id="view-more" data-view="more">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Resumen y datos</p>
+              <h2>Más</h2>
+            </div>
+          </div>
+
+          <h3 class="section-label">Estadísticas</h3>
+          <div class="stats-grid">
+            <article class="stat-card"><span>Horas este mes</span><strong id="stats-month-hours">0 h</strong></article>
+            <article class="stat-card"><span>Horas este año</span><strong id="stats-year-hours">0 h</strong></article>
+            <article class="stat-card"><span>Días este mes</span><strong id="stats-month-days">0</strong></article>
+            <article class="stat-card"><span>Días este año</span><strong id="stats-year-days">0</strong></article>
+            <article class="stat-card wide"><span>Media diaria</span><strong id="stats-average">0 h</strong></article>
+          </div>
+
+          <h3 class="section-label">Copias de seguridad</h3>
+          <article class="settings-card">
+            <button class="settings-row" id="export-json-button" type="button">
+              <span class="settings-icon blue">↓</span>
+              <span><strong>Exportar copia JSON</strong><small>Incluye fichajes, vuelos, horario e historial</small></span>
+              <b>›</b>
+            </button>
+            <label class="settings-row file-row" for="import-json-input">
+              <span class="settings-icon orange">↑</span>
+              <span><strong>Importar o restaurar JSON</strong><small>Reemplaza los datos actuales tras confirmar</small></span>
+              <b>›</b>
+              <input id="import-json-input" type="file" accept="application/json,.json" />
+            </label>
+            <div class="settings-row csv-row">
+              <span class="settings-icon green">▦</span>
+              <span><strong>Exportar historial mensual</strong><small>Archivo CSV compatible con Excel</small></span>
+              <input id="csv-month" type="month" aria-label="Mes para exportar" />
+              <button class="small-button" id="export-csv-button" type="button">CSV</button>
+            </div>
+          </article>
+
+          <h3 class="section-label">Aplicación</h3>
+          <article class="settings-card">
+            <button class="settings-row" id="install-help-button" type="button">
+              <span class="settings-icon violet">＋</span>
+              <span><strong>Instalar en iPhone</strong><small>Ver pasos para añadirla a inicio</small></span>
+              <b>›</b>
+            </button>
+            <div class="settings-row">
+              <span class="settings-icon gray">✓</span>
+              <span><strong>Guardado local</strong><small id="storage-status">IndexedDB preparado</small></span>
+              <b class="online-chip" id="connection-chip">Online</b>
+            </div>
+            <button class="settings-row danger-row" id="delete-all-button" type="button">
+              <span class="settings-icon red">×</span>
+              <span><strong>Borrar todos los datos</strong><small>Requiere doble confirmación</small></span>
+              <b>›</b>
+            </button>
+          </article>
+
+          <p class="version-label">Turno Handling · versión 1.1.0 · offline-first</p>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Navegación principal">
+        <button class="nav-item active" type="button" data-view-target="home">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" /></svg>
+          <span>Inicio</span>
+        </button>
+        <button class="nav-item" type="button" data-view-target="work">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M8 6V4h8v2M3 11h18M10 11v2h4v-2" /></svg>
+          <span>Trabajo</span>
+        </button>
+        <button class="nav-item" type="button" data-view-target="history">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v6l4 2" /></svg>
+          <span>Historial</span>
+        </button>
+        <button class="nav-item" type="button" data-view-target="schedule">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>
+          <span>Horario</span>
+        </button>
+        <button class="nav-item" type="button" data-view-target="more">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>
+          <span>Más</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="modal-backdrop" id="modal-backdrop" hidden>
+      <section class="modal-sheet" id="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="sheet-handle"></div>
+        <div class="modal-heading">
+          <div>
+            <p class="card-kicker" id="modal-kicker"></p>
+            <h2 id="modal-title"></h2>
+          </div>
+          <button class="icon-button" id="modal-close" type="button" aria-label="Cerrar">×</button>
+        </div>
+        <div id="modal-content"></div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
